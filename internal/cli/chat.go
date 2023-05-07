@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pterm/pterm"
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -139,28 +139,21 @@ func chatCmd(cli *cli) *cobra.Command {
 					return err
 				}
 			} else if len(args) == 0 {
-				scanner := bufio.NewScanner(os.Stdin)
 				for {
-					fmt.Print("> ")
-					scanner.Scan()
-					text := scanner.Text()
-					if len(text) != 0 {
-						if text == "c:editor" {
-							content, err = contentWithVim()
-							if err != nil {
-								return err
-							}
-							text = content
-						}
-						if err := StreamChatCompletion(cmd.Context(), c, text); err != nil {
+					content, err := pterm.DefaultInteractiveTextInput.WithMultiLine().Show()
+					if err != nil {
+						return err
+					}
+					if content == "c:editor" {
+						text, err := contentWithVim()
+						if err != nil {
 							return err
 						}
-					} else {
-						break
+						content = text
 					}
-				}
-				if scanner.Err() != nil {
-					return scanner.Err()
+					if err := StreamChatCompletion(cmd.Context(), c, content); err != nil {
+						return err
+					}
 				}
 				return nil
 			} else {

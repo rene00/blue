@@ -3,5 +3,5 @@ version: '3'
 tasks:
   default:
     cmds:
-      - go build -o ./blue cmd/blue/main.go
+      - go build .
     silent: true

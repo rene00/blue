@@ -12,8 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pterm/pterm"
+	"github.com/charmbracelet/bubbles/textarea"
+	tea "github.com/charmbracelet/bubbletea"
 	openai "github.com/sashabaranov/go-openai"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,6 +29,67 @@ func getEBO(retries int) time.Duration {
 	jitter := rand.Float64() * 0.1 * delay
 	delayWithJitter := time.Duration(delay+jitter) % maxDelay
 	return delayWithJitter
+}
+
+type Model struct {
+	textarea textarea.Model
+	err      error
+	Input    string
+}
+
+func (m Model) Init() tea.Cmd {
+	return textarea.Blink
+}
+
+type errMsg error
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC:
+			return m, tea.Quit
+		case tea.KeyTab:
+			m.Input = m.textarea.Value()
+			return m, tea.Quit
+		default:
+			if !m.textarea.Focused() {
+				cmd = m.textarea.Focus()
+				cmds = append(cmds, cmd)
+			}
+		}
+	case errMsg:
+		m.err = msg
+		return m, nil
+	}
+
+	m.textarea, cmd = m.textarea.Update(msg)
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
+}
+
+func (m Model) View() string {
+	return fmt.Sprintf(m.textarea.View()) + "\n\n"
+}
+
+func (m Model) value() string {
+	return m.Input
+}
+
+func initialModel() Model {
+	ti := textarea.New()
+	ti.Placeholder = "press [tab] to submit prompt"
+	ti.SetWidth(72)
+	ti.SetHeight(3)
+	ti.ShowLineNumbers = false
+	ti.Focus()
+	return Model{
+		textarea: ti,
+		err:      nil,
+	}
 }
 
 func StreamChatCompletion(ctx context.Context, c *openai.Client, content string) error {
@@ -140,20 +203,20 @@ func chatCmd(cli *cli) *cobra.Command {
 				}
 			} else if len(args) == 0 {
 				for {
-					content, err := pterm.DefaultInteractiveTextInput.WithMultiLine().Show()
+					p := tea.NewProgram(initialModel())
+					m, err := p.Run()
 					if err != nil {
 						return err
 					}
-					if content == "c:editor" {
-						text, err := contentWithVim()
-						if err != nil {
-							return err
-						}
-						content = text
+					a, _ := m.(Model)
+					content = strings.ReplaceAll(a.Input, "\n", " ")
+					if content == "" {
+						break
 					}
 					if err := StreamChatCompletion(cmd.Context(), c, content); err != nil {
 						return err
 					}
+					fmt.Scanln()
 				}
 				return nil
 			} else {

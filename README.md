@@ -6,7 +6,7 @@ A small terminal tool used to interact with various online services, mostly cent
 
 To install, check out the releases page or use [task](https://taskfile.dev):
 ```bash
-$ task
+$ task build
 ```
 
 Then set `OPENAI_API_KEY` to a valid [OpenAI key](https://platform.openai.com/account/api-keys):
@@ -19,21 +19,16 @@ $ export OPENAI_API_KEY=secret
 To chat interactively:
 ```bash
 $ blue chat 
-Input text [Press tab to submit] :
-Write two taglines for an ice cream shop.
-1. "Scoops of happiness in every cone!"
-2. "Sweet treats that will cool your soul."
-```
+┃ Write two tag lines for an ice cream shop:                         
+┃                                                                    
+┃                                                                    
 
-Or using vim to write your prompt
+1. "Indulge in the ultimate scoop of happiness!"
+2. "Cool treats to satisfy your sweet cravings!"
+```
+- press [tab] to submit the prompt.
+
+Or using vim to write your prompt:
 ```
 $ blue chat --editor
 ```
-
-Or both:
-```
-$ blue chat
-Input text [Press tab to submit] :
-c:editor
-```
-The last line will open up vim for your prompt whilst keeping you in interactive mode.

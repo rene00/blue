@@ -26,9 +26,10 @@ $ blue chat
 1. "Indulge in the ultimate scoop of happiness!"
 2. "Cool treats to satisfy your sweet cravings!"
 ```
-- press [tab] to submit the prompt.
+- press `[tab]` to submit the prompt.
+- press `[enter]` to continue after receiving the response.
 
-Or using vim to write your prompt:
+Or using `vim` to write your prompt:
 ```
 $ blue chat --editor
 ```
@@ -37,7 +38,7 @@ $ blue chat --editor
 `chat` can accept commands in the form of `c:$NAME` (example: `c:print`)
 
 ### print
-`c:print` will print the current messages. The messages will not be sent.
+`c:print` will print the current messages. The prompt will not be sent.
 ```bash
 ┃ why does it rain?
 ┃ c:print

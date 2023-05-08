@@ -18,10 +18,10 @@ $ export OPENAI_API_KEY=secret
 
 To chat interactively:
 ```bash
-$ blue chat 
-┃ Write two tag lines for an ice cream shop:                         
-┃                                                                    
-┃                                                                    
+$ blue chat
+┃ Write two tag lines for an ice cream shop:
+┃
+┃
 
 1. "Indulge in the ultimate scoop of happiness!"
 2. "Cool treats to satisfy your sweet cravings!"
@@ -31,4 +31,17 @@ $ blue chat
 Or using vim to write your prompt:
 ```
 $ blue chat --editor
+```
+
+## commands
+`chat` can accept commands in the form of `c:$NAME` (example: `c:print`)
+
+### print
+`c:print` will print the current messages. The messages will not be sent.
+```bash
+┃ why does it rain?
+┃ c:print
+┃
+
+{"role":"user","content":"why does it rain?\n"}
 ```

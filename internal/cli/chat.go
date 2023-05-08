@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"blue/internal/prompt"
 	"context"
 	"errors"
 	"fmt"
@@ -92,19 +93,23 @@ func initialModel() Model {
 	}
 }
 
-func StreamChatCompletion(ctx context.Context, c *openai.Client, content string) error {
+func StreamChatCompletion(ctx context.Context, c *openai.Client, req openai.ChatCompletionRequest) (openai.ChatCompletionStreamResponse, error) {
 	var err error
-	req := openai.ChatCompletionRequest{
-		Model:     openai.GPT3Dot5Turbo,
-		MaxTokens: 2048,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: content,
+	chatResponse := openai.ChatCompletionStreamResponse{}
+
+	/*
+		req := openai.ChatCompletionRequest{
+			Model:     openai.GPT3Dot5Turbo,
+			MaxTokens: 2048,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: content,
+				},
 			},
-		},
-		Stream: true,
-	}
+			Stream: true,
+		}
+	*/
 
 	e := &openai.APIError{}
 	stream := &openai.ChatCompletionStream{}
@@ -122,7 +127,7 @@ func StreamChatCompletion(ctx context.Context, c *openai.Client, content string)
 					continue
 				}
 			}
-			return err
+			return chatResponse, err
 		}
 	}
 	defer stream.Close()
@@ -131,17 +136,17 @@ func StreamChatCompletion(ctx context.Context, c *openai.Client, content string)
 		response, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			fmt.Println()
-			return nil
+			return chatResponse, nil
 		}
 		if err != nil {
 			fmt.Printf("\nstream error: %v\n", err)
-			return err
+			return chatResponse, err
 		}
 
 		fmt.Printf(response.Choices[0].Delta.Content)
 	}
 
-	return nil
+	return chatResponse, nil
 }
 
 func contentWithVim() (string, error) {
@@ -202,6 +207,9 @@ func chatCmd(cli *cli) *cobra.Command {
 					return err
 				}
 			} else if len(args) == 0 {
+
+				pmpt := prompt.NewPrompt()
+
 				for {
 					p := tea.NewProgram(initialModel())
 					m, err := p.Run()
@@ -209,22 +217,39 @@ func chatCmd(cli *cli) *cobra.Command {
 						return err
 					}
 					a, _ := m.(Model)
-					content = strings.ReplaceAll(a.Input, "\n", " ")
+					content = a.Input
+
 					if content == "" {
 						break
 					}
-					if err := StreamChatCompletion(cmd.Context(), c, content); err != nil {
-						return err
+
+					pmpt.Message("user", strings.TrimRight(content, "\n"))
+					if err = pmpt.Commands(); err != nil {
+						fmt.Println(err)
 					}
+
+					if pmpt.Ready() {
+						resp, err := StreamChatCompletion(cmd.Context(), c, pmpt.ChatCompletion())
+						if err != nil {
+							return err
+						}
+						pmpt.Response(resp)
+						pmpt.Reset()
+					}
+
 					fmt.Scanln()
 				}
 				return nil
 			} else {
 				content = strings.Join(args, " ")
 			}
-			if err := StreamChatCompletion(cmd.Context(), c, content); err != nil {
+			pmpt := prompt.NewPrompt()
+			pmpt.Message("user", content)
+			resp, err := StreamChatCompletion(cmd.Context(), c, pmpt.ChatCompletion())
+			if err != nil {
 				return err
 			}
+			pmpt.Response(resp)
 
 			return nil
 		},

@@ -1,12 +1,15 @@
 package prompt
 
 import (
+	"blue/internal/editor"
+	"blue/internal/model"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -20,9 +23,8 @@ type Input struct {
 }
 
 type Prompt struct {
-	ready    bool
-	messages []openai.ChatCompletionMessage
-	// The chat completion responses from openai.
+	ready     bool
+	messages  []openai.ChatCompletionMessage
 	responses []openai.ChatCompletionStreamResponse
 	inputs    []Input
 	Opts
@@ -35,6 +37,8 @@ type Opts struct {
 	maxTokens int
 	// The openai stream.
 	stream bool
+
+	termModel model.Model
 }
 
 type OptFunc func(*Opts)
@@ -50,6 +54,13 @@ func defaultOpts() Opts {
 		model:     openai.GPT3Dot5Turbo,
 		maxTokens: 2048,
 		stream:    true,
+		termModel: model.NewDefaultModel(),
+	}
+}
+
+func WithTextAreaModel() OptFunc {
+	return func(opts *Opts) {
+		opts.termModel = model.NewTextAreaModel()
 	}
 }
 
@@ -64,9 +75,17 @@ func NewPrompt(opts ...OptFunc) *Prompt {
 	}
 }
 
+func (p *Prompt) Run() (tea.Model, error) {
+	return tea.NewProgram(p.termModel).Run()
+}
+
 // Ready returns a bool and indicates whether the prompt is ready to send.
 func (p *Prompt) Ready() bool {
 	return p.ready
+}
+
+func (p *Prompt) Messages() []openai.ChatCompletionMessage {
+	return p.messages
 }
 
 func (p *Prompt) Message(role, content string) error {
@@ -131,6 +150,18 @@ func (p *Prompt) Commands() error {
 				}
 				ready = false
 				p.Reset()
+
+			// c:editor will open the prompt in $EDITOR.
+			case "editor":
+				p.removeCommandFromMessage(m, idx, match[0])
+				lastMessage := p.messages[len(p.messages)-1]
+				e := editor.NewEditor(editor.WithInitialContent(lastMessage.Content))
+				s, err := e.Edit()
+				if err != nil {
+					return err
+				}
+				m.Content = s
+				p.messages[idx] = m
 			default:
 				return fmt.Errorf("command %s unsupported", c.name)
 			}
@@ -143,7 +174,12 @@ func (p *Prompt) Commands() error {
 	return nil
 }
 
+func (p *Prompt) Input() string {
+	return p.termModel.Input()
+}
+
 func (p *Prompt) Reset() {
+	p.termModel.Reset()
 	p.messages = []openai.ChatCompletionMessage{}
 }
 

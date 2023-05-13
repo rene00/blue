@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"blue/internal/editor"
 	"blue/internal/prompt"
 	"context"
 	"errors"
@@ -9,12 +10,9 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
 	openai "github.com/sashabaranov/go-openai"
 
 	"github.com/spf13/cobra"
@@ -30,67 +28,6 @@ func getEBO(retries int) time.Duration {
 	jitter := rand.Float64() * 0.1 * delay
 	delayWithJitter := time.Duration(delay+jitter) % maxDelay
 	return delayWithJitter
-}
-
-type Model struct {
-	textarea textarea.Model
-	err      error
-	Input    string
-}
-
-func (m Model) Init() tea.Cmd {
-	return textarea.Blink
-}
-
-type errMsg error
-
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-	var cmd tea.Cmd
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
-		case tea.KeyTab:
-			m.Input = m.textarea.Value()
-			return m, tea.Quit
-		default:
-			if !m.textarea.Focused() {
-				cmd = m.textarea.Focus()
-				cmds = append(cmds, cmd)
-			}
-		}
-	case errMsg:
-		m.err = msg
-		return m, nil
-	}
-
-	m.textarea, cmd = m.textarea.Update(msg)
-	cmds = append(cmds, cmd)
-	return m, tea.Batch(cmds...)
-}
-
-func (m Model) View() string {
-	return fmt.Sprintf(m.textarea.View()) + "\n\n"
-}
-
-func (m Model) value() string {
-	return m.Input
-}
-
-func initialModel() Model {
-	ti := textarea.New()
-	ti.Placeholder = "press [tab] to submit prompt"
-	ti.SetWidth(72)
-	ti.SetHeight(3)
-	ti.ShowLineNumbers = false
-	ti.Focus()
-	return Model{
-		textarea: ti,
-		err:      nil,
-	}
 }
 
 func StreamChatCompletion(ctx context.Context, c *openai.Client, req openai.ChatCompletionRequest) (openai.ChatCompletionStreamResponse, error) {
@@ -149,33 +86,6 @@ func StreamChatCompletion(ctx context.Context, c *openai.Client, req openai.Chat
 	return chatResponse, nil
 }
 
-func contentWithVim() (string, error) {
-	content := ""
-	tmpFile, err := os.CreateTemp("", "")
-	if err != nil {
-		return content, err
-	}
-	defer os.Remove(tmpFile.Name())
-
-	c := exec.Command("vim", tmpFile.Name())
-	c.Stdin = os.Stdin
-	c.Stdout = os.Stdout
-	err = c.Run()
-	if err != nil {
-		return content, err
-	}
-
-	f, err := os.ReadFile(tmpFile.Name())
-	if err != nil {
-		return content, err
-	}
-
-	content = string(f)
-
-	return content, nil
-
-}
-
 func chatCmd(cli *cli) *cobra.Command {
 
 	var flags struct {
@@ -200,25 +110,24 @@ func chatCmd(cli *cli) *cobra.Command {
 			}
 
 			c := openai.NewClient(apiKey)
+			pmptOpts := []prompt.OptFunc{}
+			pmptOpts = append(pmptOpts, prompt.WithTextAreaModel())
+			pmpt := prompt.NewPrompt(pmptOpts...)
 
 			if len(args) == 0 && flags.editor {
-				content, err = contentWithVim()
+				editor := editor.NewEditor()
+				content, err = editor.Edit()
 				if err != nil {
 					return err
 				}
 			} else if len(args) == 0 {
-
-				pmpt := prompt.NewPrompt()
-
 				for {
-					p := tea.NewProgram(initialModel())
-					m, err := p.Run()
-					if err != nil {
+
+					if _, err := pmpt.Run(); err != nil {
 						return err
 					}
-					a, _ := m.(Model)
-					content = a.Input
 
+					content = pmpt.Input()
 					if content == "" {
 						break
 					}
@@ -243,7 +152,7 @@ func chatCmd(cli *cli) *cobra.Command {
 			} else {
 				content = strings.Join(args, " ")
 			}
-			pmpt := prompt.NewPrompt()
+
 			pmpt.Message("user", content)
 			resp, err := StreamChatCompletion(cmd.Context(), c, pmpt.ChatCompletion())
 			if err != nil {

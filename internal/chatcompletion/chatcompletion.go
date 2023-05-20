@@ -18,39 +18,39 @@ const baseDelay = 10 * time.Second
 const maxDelay = 60 * time.Second
 
 type ChatCompletion struct {
-	Opts
-	messages []openai.ChatCompletionMessage
-}
-
-type Opts struct {
 	model     string
 	maxTokens int
 	stream    bool
+	messages  []openai.ChatCompletionMessage
 }
 
-type OptFunc func(*Opts)
+type OptFunc func(*ChatCompletion)
 
-func withMaxTokens(n int) OptFunc {
-	return func(opts *Opts) {
-		opts.maxTokens = n
+func WithMaxTokens(n int) OptFunc {
+	return func(c *ChatCompletion) {
+		c.maxTokens = n
 	}
 }
 
-func defaultOpts() Opts {
-	return Opts{
-		model:     openai.GPT3Dot5Turbo,
-		maxTokens: 2048,
-		stream:    true,
+func WithChatCompletionMessages(m []openai.ChatCompletionMessage) OptFunc {
+	return func(c *ChatCompletion) {
+		c.messages = m
 	}
 }
 
 func NewChatCompletion(opts ...OptFunc) ChatCompletion {
-	o := defaultOpts()
-	for _, fn := range opts {
-		fn(&o)
+	c := ChatCompletion{
+		model:     openai.GPT3Dot5Turbo,
+		maxTokens: 2048,
+		stream:    true,
+		messages:  []openai.ChatCompletionMessage{},
 	}
 
-	return ChatCompletion{Opts: o}
+	for _, fn := range opts {
+		fn(&c)
+	}
+
+	return c
 }
 
 func (c *ChatCompletion) Message(role, content string) error {
@@ -81,12 +81,15 @@ func (c *ChatCompletion) Message(role, content string) error {
 
 func (c ChatCompletion) Request() openai.ChatCompletionRequest {
 	return openai.ChatCompletionRequest{
-		Model:     c.Opts.model,
-		MaxTokens: c.Opts.maxTokens,
-		Stream:    c.Opts.stream,
+		Model:     c.model,
+		MaxTokens: c.maxTokens,
+		Stream:    c.stream,
 		Messages:  c.messages,
 	}
+}
 
+func (c ChatCompletion) Messages() []openai.ChatCompletionMessage {
+	return c.messages
 }
 
 func getEBO(retries int) time.Duration {

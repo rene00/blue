@@ -25,6 +25,8 @@ func NewUserInput(s string) UserInput {
 				u.commands = append(u.commands, NewEchoCommand())
 			case "editor":
 				u.commands = append(u.commands, NewEditorCommand())
+			case "printmessages":
+				u.commands = append(u.commands, NewPrintMessagesCommand())
 			default:
 			}
 		}

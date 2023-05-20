@@ -67,6 +67,7 @@ func (e Editor) createTempFile() (*os.File, error) {
 	return tmpFile, nil
 }
 
+// Edit returns a string which is the contents of the file edited.
 func (e Editor) Edit() (string, error) {
 	content := ""
 
@@ -92,4 +93,18 @@ func (e Editor) Edit() (string, error) {
 
 	content = string(f)
 	return content, nil
+}
+
+func (e Editor) Cmd() (*exec.Cmd, error) {
+	tmpFile, err := e.createTempFile()
+	if err != nil {
+		return nil, err
+	}
+
+	defer os.Remove(tmpFile.Name())
+
+	c := exec.Command(e.basename, tmpFile.Name())
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	return c, nil
 }

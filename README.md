@@ -35,14 +35,23 @@ $ blue chat --editor
 ```
 
 ## commands
-`chat` can accept commands in the form of `c:$NAME` (example: `c:print`)
+`chat` can accept commands in the form of `c:$NAME` (example: `c:print`).
 
-### print
-`c:print` will print the current messages. The prompt will not be sent.
+Commands will run and will not send the prompt to openai. Instead the prompt will be returned to the screen for further editing or sending with `[tab]`.
+
+### echo
+`c:echo` echos the prompt to standard out.
 ```bash
 ┃ why does it rain?
-┃ c:print
+┃ c:echo
 ┃
 
-{"role":"user","content":"why does it rain?\n"}
+why does it rain?
+```
+
+### editor
+`c:editor` opens the prompt within your editor.
+```bash
+┃ why does it rain?
+┃ c:editor
 ```

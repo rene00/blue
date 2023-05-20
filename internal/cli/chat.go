@@ -46,8 +46,20 @@ func chatCmd(cli *cli) *cobra.Command {
 				}
 			} else if len(args) == 0 {
 				i := ""
+
+				msgs := []openai.ChatCompletionMessage{}
 				for {
-					m := model.NewModel(i)
+
+					modelOpts := []model.OptFunc{}
+					if i != "" {
+						modelOpts = append(modelOpts, model.WithInitialValue(i))
+					}
+
+					if len(msgs) >= 1 {
+						modelOpts = append(modelOpts, model.WithChatCompletionMessages(msgs))
+					}
+
+					m := model.NewModel(modelOpts...)
 					if _, err := tea.NewProgram(m).Run(); err != nil {
 						return err
 					}
@@ -57,14 +69,20 @@ func chatCmd(cli *cli) *cobra.Command {
 					}
 
 					if m.Ready() {
-						chatCompletion := chatcompletion.NewChatCompletion()
+						chatCompletionOpts := []chatcompletion.OptFunc{}
+						if len(m.Messages()) >= 1 {
+							chatCompletionOpts = append(chatCompletionOpts, chatcompletion.WithChatCompletionMessages(m.Messages()))
+						}
+						chatCompletion := chatcompletion.NewChatCompletion(chatCompletionOpts...)
 						if err := chatCompletion.Message("user", m.UserInput.FilteredInput()); err != nil {
 							return err
 						}
+
 						_, err := chatcompletion.StreamChatCompletion(cmd.Context(), c, chatCompletion.Request())
 						if err != nil {
 							return err
 						}
+						msgs = chatCompletion.Messages()
 						fmt.Println()
 						m.Reset()
 					} else {

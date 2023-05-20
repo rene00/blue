@@ -55,3 +55,13 @@ why does it rain?
 ┃ why does it rain?
 ┃ c:editor
 ```
+
+### printmessages
+`c:printmessages` prints the messages stored within the chat completion message
+```bash
+┃ why does it rain?
+┃ c:editor
+┃
+
+[]openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role:"user", Content:"why does it rain?", Name:""}}
+```

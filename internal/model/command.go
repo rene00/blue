@@ -35,3 +35,14 @@ func (c EditorCommand) Run(m *Model) error {
 	m.UserInput.Update(content)
 	return nil
 }
+
+type PrintMessagesCommand struct{}
+
+func NewPrintMessagesCommand() Command {
+	return PrintMessagesCommand{}
+}
+
+func (c PrintMessagesCommand) Run(m *Model) error {
+	fmt.Printf("%#+v\n\n", m.Messages())
+	return nil
+}
